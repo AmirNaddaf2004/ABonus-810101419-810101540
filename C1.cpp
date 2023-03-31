@@ -146,7 +146,7 @@ vector<int> organize_close_times(vector<vector<string>> locations_info_table, in
 vector<locations> organize_locations_data(vector<vector<string>> locations_info_table, vector<int> open_times,
 										 vector<int> close_times, vector<int> title_arrangment)
 {
-	vector<locations> input_structs;
+	vector<locations> locations_data;
 	locations adding_loc;
 	int location_number = locations_info_table.size();
 	for (int i = 0; i < location_number; i++)
@@ -156,9 +156,9 @@ vector<locations> organize_locations_data(vector<vector<string>> locations_info_
 		adding_loc.opening_time = open_times[i];
 		adding_loc.closing_time	= close_times[i];
 		adding_loc.rank = stoi(locations_info_table[i][title_arrangment[RANK]]);
-		input_structs.push_back(adding_loc);
+		locations_data.push_back(adding_loc);
 	}
-	return input_structs;
+	return locations_data;
 }
 
 int find_min(vector<int> vec)
@@ -178,7 +178,7 @@ int find_min(vector<int> vec)
 		return vec[0];
 }
 
-int is_num_in_vector(vector<int> vec, int element)
+int is_num_in_locations(vector<int> vec, int element)
 {
 	for (int i = 0; i < vec.size(); i++)
 		if (vec[i] == element)
@@ -193,8 +193,8 @@ void find_suitable_indexs(vector<locations> input, int nearest_time, vector<int>
 	for (int i = 0; i < size; i++)
 		if (input[i].opening_time == nearest_time)
 		{
-			int existence_checker = is_num_in_vector(location_check, (input[i].number - 1));
-			int unsuitable_checker = is_num_in_vector(unsuitable_indexs, i);
+			int existence_checker = is_num_in_locations(location_check, (input[i].number - 1));
+			int unsuitable_checker = is_num_in_locations(unsuitable_indexs, i);
 			if (existence_checker == 0 && unsuitable_checker == 0)
 				suitable_indexs.push_back(i);
 		}
@@ -241,10 +241,10 @@ vector<int> find_open_locs(vector<int> &open_times, int current_time, vector<int
 	vector<int> suitable_indexs;
 	for (int i = 0; i < open_times.size(); i++)
 	{
-		int existence_checker = is_num_in_vector(location_check, i);
+		int existence_checker = is_num_in_locations(location_check, i);
 		if (open_times[i] <= current_time && existence_checker == 0)
 		{
-			int unsuitable_check = is_num_in_vector(unsuitable_indexs, i);
+			int unsuitable_check = is_num_in_locations(unsuitable_indexs, i);
 			if (unsuitable_check == 0)
 				suitable_indexs.push_back(i);
 		}
@@ -320,8 +320,8 @@ int existence_check(vector<int> location_check, int index)
 	return NOT_FOUND;
 }
 
-void find_next_destenation(vector<locations> input, vector<int> &location_check, vector<int> &start, vector<int> &durations,
-						   vector<int> &open_times, vector<int> &close_times)
+void final_next_destination(vector<locations> input, vector<int> &location_check, vector<int> &start, vector<int> &durations,
+vector<int> &open_times, vector<int> &close_times)
 {
 	int size = input.size();
 	vector<int> not_suitables;
@@ -349,12 +349,12 @@ string convert_int_to_clockform(int time)
 {
 	int hour = time / HOUR;
 	int min = time - (hour * HOUR);
-	stringstream ss;
-	ss << hour;
-	string hour_str = ss.str();
-	stringstream sss;
-	sss << min;
-	string min_str = sss.str();
+	stringstream hour_stream;
+	hour_stream << hour;
+	string hour_str = hour_stream.str();
+	stringstream min_stream;
+	min_stream << min;
+	string min_str = min_stream.str();
 	if (hour < 10 && min < 10)
 		return "0" + hour_str + TIME_DELIMITER + "0" + min_str;
 	else if (hour < 10 && min >= 10)
@@ -367,24 +367,23 @@ string convert_int_to_clockform(int time)
 
 vector<vector<string>> make_vector_ready_for_print(vector<locations> input, vector<int> &close_times, vector<int> &location_check, vector<int> &start, vector<int> &durations)
 {
-	vector<vector<string>> temp_vector;
+	vector<vector<string>> final_schedjule;
 	for (int i = 0; i < location_check.size(); i++)
 	{
 		int end = calculate_endtime(start[i], durations[i]);
 		string standard_start = convert_int_to_clockform(start[i]);
 		string standard_end = convert_int_to_clockform(end);
-		vector<string> temp = {input[location_check[i]].name, standard_start, standard_end};
-		temp_vector.push_back(temp);
+		vector<string> temp_schedjule = {input[location_check[i]].name, standard_start, standard_end};
+		final_schedjule.push_back(temp_schedjule);
 	}
-	return temp_vector;
+	return final_schedjule;
 }
 
-void print_output(vector<vector<string>> temp_vector)
+void print_output(vector<vector<string>> final_schedjule)
 {
-	for (int i = 0; i < temp_vector.size(); i++)
-		cout << "Location " << temp_vector[i][NAME] << endl
-			 << "Visit from " << temp_vector[i][OPENING_TIME] << " until " << 
-			temp_vector[i][CLOSING_TIME] << endl << "---" << endl;
+	for (int i = 0; i < final_schedjule.size(); i++)
+		cout << "Location " << final_schedjule[i][NAME] << endl
+			 << "Visit from " << final_schedjule[i][OPENING_TIME] << " until " <<final_schedjule[i][CLOSING_TIME] << endl << "---" << endl;
 }
 
 vector<locations> read_from_file(string file_name, vector<int> &open_times, vector<int> &close_times)
@@ -405,7 +404,7 @@ int main(int argc, char *argv[])
 	vector<int> open_times;
 	vector<int> close_times;
 	vector<locations> location_data = read_from_file(argv[1] + 2, open_times, close_times);
-	find_next_destenation(location_data, gone_location, start_times, durations, open_times, close_times);
+	final_next_destination(location_data, gone_location, start_times, durations, open_times, close_times);
 	vector<vector<string>> ready_to_print = make_vector_ready_for_print(location_data, close_times,
 																		gone_location, start_times, durations);
 	print_output(ready_to_print);
