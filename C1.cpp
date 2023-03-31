@@ -10,6 +10,7 @@ const string INPUT_KEYWORDS[4] = {"name", "openingTime", "closingTime", "rank"};
 const char INPUT_DELIMITER = ',';
 const char TIME_DELIMITER = ':';
 const int INITIAL_TIME = 480;
+const int NOT_FOUND = -1;
 
 enum HOUR
 {
@@ -35,16 +36,30 @@ struct locations
 	int rank;
 };
 
-int search_element(vector<string> vec, string element)
+int search_element(vector<string> titles, string element)
 {
-	for (int i = 0; i < vec.size(); i++)
-		if (vec[i] == element)
+	for (int i = 0; i < titles.size(); i++)
+		if (titles[i] == element)
 			return i;
-	return -1;
+	return NOT_FOUND;
 }
 
-vector<int> arrangment_function(vector<string> titles)
+vector<string> read_titles(string file_name)
 {
+	ifstream file(file_name);
+	string titles_line;
+	getline(file, titles_line);
+	vector<string> all_titles;
+	string title;
+	stringstream titles_line_stream(titles_line);
+	while (getline(titles_line_stream, title, INPUT_DELIMITER))
+		all_titles.push_back(title);
+	return all_titles;
+}
+
+vector<int> find_title_order(string file_name)
+{
+	vector<string> titles = read_titles(file_name);
 	int name_index = search_element(titles, INPUT_KEYWORDS[NAME]);
 	int opentime_index = search_element(titles, INPUT_KEYWORDS[OPENING_TIME]);
 	int closetime_index = search_element(titles, INPUT_KEYWORDS[CLOSING_TIME]);
@@ -54,90 +69,94 @@ vector<int> arrangment_function(vector<string> titles)
 	return title_arrangment;
 }
 
-vector<string> read_locs_data(string file_name)
+vector<vector<string>> split_data(vector<string> lines_of_locations_info)
 {
-	vector<string> input_strings;
-	ifstream file(file_name);
-	string temp_str;
-	string temp_str2;
-	getline(file, temp_str2);
-	while (getline(file, temp_str))
-		input_strings.push_back(temp_str);
-	return input_strings;
-}
-
-vector<vector<string>> split_input(vector<string> input_strings)
-{
-	vector<vector<string>> input_table;
-	int location_number = input_strings.size();
-	string token;
-	vector<string> temp_vec;
+	vector<vector<string>> locations_info_table;
+	int location_number = lines_of_locations_info.size();
+	string new_loc;
+	vector<string> location_info;
 	for (int i = 0; i < location_number; i++)
 	{
-		stringstream S(input_strings[i]);
-		while (getline(S, token, INPUT_DELIMITER))
+		stringstream stream_of_loc_info(lines_of_locations_info[i]);
+		while (getline(stream_of_loc_info, new_loc, INPUT_DELIMITER))
 		{
-			temp_vec.push_back(token);
+			location_info.push_back(new_loc);
 		}
-		input_table.push_back(temp_vec);
-		temp_vec.clear();
+		locations_info_table.push_back(location_info);
+		location_info.clear();
 	}
-	return input_table;
+	return locations_info_table;
 }
 
-vector<int> create_opentime_vector(vector<vector<string>> input_table, int opentime_index)
+vector<vector<string>> read_locs_data(string file_name)
+{
+	vector<vector<string>> locations_info_table;
+	vector<string> lines_of_locations_info;
+	ifstream file(file_name);
+	string location_info, arrangment;
+	getline(file, arrangment);
+	while (getline(file, location_info))
+		lines_of_locations_info.push_back(location_info);
+	locations_info_table = split_data(lines_of_locations_info);
+	return locations_info_table;
+}
+
+int time_to_minute(string time)
+{
+	int hour, minute, time_in_minute;
+	string new_time;
+	stringstream time_stream(time);
+	for(int i = 0; i < 2; i++)
+	{
+		getline(time_stream, new_time, TIME_DELIMITER);
+		stringstream time_stream(new_time);
+		if(i == 0)
+			time_stream >> hour;
+		else
+			time_stream >> minute;
+	}
+	time_in_minute = hour * HOUR + minute;
+	return time_in_minute;	
+}
+
+vector<int> organize_open_times(vector<vector<string>> locations_info_table, int open_time_index)
 {
 	vector<int> open_times;
-	string token;
-	vector<int> temp;
-	int location_number = input_table.size();
+	int location_number = locations_info_table.size();
 	for (int i = 0; i < location_number; i++)
 	{
-		stringstream S(input_table[i][opentime_index]);
-		while (getline(S, token, TIME_DELIMITER))
-		{
-			stringstream ss(token);
-			int temp_clock = 0;
-			ss >> temp_clock;
-			temp.push_back(temp_clock);
-		}
-		int close_time = temp[0] * HOUR + temp[1];
-		temp.clear();
-		open_times.push_back(close_time);
+		int open_time_in_minute = time_to_minute(locations_info_table[i][open_time_index]);
+		open_times.push_back(open_time_in_minute);
 	}
 	return open_times;
 }
-vector<int> create_closetime_vector(vector<vector<string>> input_table, int closetime_index)
+
+vector<int> organize_close_times(vector<vector<string>> locations_info_table, int close_time_index)
 {
 	vector<int> close_times;
-	string token;
-	vector<int> temp;
-	int location_number = input_table.size();
+	int location_number = locations_info_table.size();
 	for (int i = 0; i < location_number; i++)
 	{
-		stringstream S(input_table[i][closetime_index]);
-		while (getline(S, token, TIME_DELIMITER))
-		{
-			stringstream ss(token);
-			int temp_clock = 0;
-			ss >> temp_clock;
-			temp.push_back(temp_clock);
-		}
-		int close_time = temp[0] * HOUR + temp[1];
-		temp.clear();
-		close_times.push_back(close_time);
+		int close_time_in_minute = time_to_minute(locations_info_table[i][close_time_index]);
+		close_times.push_back(close_time_in_minute);
 	}
 	return close_times;
 }
 
-vector<locations> put_input_to_struct(vector<vector<string>> input_table, vector<int> &open_times, vector<int> &close_times, vector<int> title_arrangment)
+vector<locations> organize_locations_data(vector<vector<string>> locations_info_table, vector<int> open_times,
+										 vector<int> close_times, vector<int> title_arrangment)
 {
 	vector<locations> input_structs;
-	int string_num = input_table.size();
-	for (int i = 0; i < string_num; i++)
+	locations adding_loc;
+	int location_number = locations_info_table.size();
+	for (int i = 0; i < location_number; i++)
 	{
-		vector<locations> input_vector;
-		input_structs.push_back({i + 1, input_table[i][title_arrangment[0]], open_times[i], close_times[i], stoi(input_table[i][title_arrangment[RANK]])});
+		adding_loc.number = i + 1;
+		adding_loc.name = locations_info_table[i][title_arrangment[NAME]];
+		adding_loc.opening_time = open_times[i];
+		adding_loc.closing_time	= close_times[i];
+		adding_loc.rank = stoi(locations_info_table[i][title_arrangment[RANK]]);
+		input_structs.push_back(adding_loc);
 	}
 	return input_structs;
 }
@@ -158,6 +177,7 @@ int find_min(vector<int> vec)
 	else
 		return vec[0];
 }
+
 int is_num_in_vector(vector<int> vec, int element)
 {
 	for (int i = 0; i < vec.size(); i++)
@@ -165,6 +185,7 @@ int is_num_in_vector(vector<int> vec, int element)
 			return 1;
 	return 0;
 }
+
 void find_suitable_indexs(vector<locations> input, int nearest_time, vector<int> location_check,
 						  vector<int> &suitable_indexs, vector<int> unsuitable_indexs)
 {
@@ -184,8 +205,9 @@ int match_num_rank(vector<locations> input, int rank)
 	for (int i = 0; i < input.size(); i++)
 		if (input[i].rank == rank)
 			return i;
-	return -1;
+	return NOT_FOUND;
 }
+
 int find_best(vector<int> suitable_indexs, vector<locations> input)
 {
 	vector<int> ranks;
@@ -206,6 +228,7 @@ int calculate(int previous_time, int duration)
 		duration = HOUR;
 	return previous_time + duration + HALF;
 }
+
 int calculate_endtime(int previous_time, int duration)
 {
 	if (duration >= HOUR)
@@ -270,7 +293,7 @@ int check_destination_wellness(vector<locations> input, int current_time, int in
 	if (duration_checker == 1)
 		return duration;
 	else
-		return -1;
+		return NOT_FOUND;
 }
 
 int find_max(vector<int> closing_time)
@@ -294,8 +317,9 @@ int existence_check(vector<int> location_check, int index)
 	for (int i = 0; i < location_check.size(); i++)
 		if (location_check[i] == index)
 			return i;
-	return -1;
+	return NOT_FOUND;
 }
+
 void find_next_destenation(vector<locations> input, vector<int> &location_check, vector<int> &start, vector<int> &durations,
 						   vector<int> &open_times, vector<int> &close_times)
 {
@@ -308,7 +332,7 @@ void find_next_destenation(vector<locations> input, vector<int> &location_check,
 		int index = find_next_destination_index(current_time, open_times, input, location_check, not_suitables);
 		int existence_checker = existence_check(location_check, index);
 		int duration_check = check_destination_wellness(input, current_time, index);
-		if (existence_checker == (-1) && duration_check != (-1))
+		if (existence_checker == (NOT_FOUND) && duration_check != (NOT_FOUND))
 		{
 			location_check.push_back(index);
 			start.push_back(current_time);
@@ -320,6 +344,7 @@ void find_next_destenation(vector<locations> input, vector<int> &location_check,
 		counter++;
 	}
 }
+
 string convert_int_to_clockform(int time)
 {
 	int hour = time / HOUR;
@@ -357,28 +382,19 @@ vector<vector<string>> make_vector_ready_for_print(vector<locations> input, vect
 void print_output(vector<vector<string>> temp_vector)
 {
 	for (int i = 0; i < temp_vector.size(); i++)
-		cout << "Location " << temp_vector[i][0] << endl
-			 << "Visit from " << temp_vector[i][1] << " until " << temp_vector[i][2] << endl
-			 << "---" << endl;
+		cout << "Location " << temp_vector[i][NAME] << endl
+			 << "Visit from " << temp_vector[i][OPENING_TIME] << " until " << 
+			temp_vector[i][CLOSING_TIME] << endl << "---" << endl;
 }
 
 vector<locations> read_from_file(string file_name, vector<int> &open_times, vector<int> &close_times)
 {
-	ifstream file(file_name);
-	string temp_str;
-	getline(file, temp_str);
-	vector<string> splitted_firstline;
-	string token;
-	stringstream S(temp_str);
-	while (getline(S, token, INPUT_DELIMITER))
-		splitted_firstline.push_back(token);
-	vector<int> arrangment = arrangment_function(splitted_firstline);
-	vector<string> primitive_get = read_locs_data(file_name);
-	vector<vector<string>> splitted_input = split_input(primitive_get);
-	open_times = create_opentime_vector(splitted_input, arrangment[1]);
-	close_times = create_closetime_vector(splitted_input, arrangment[2]);
-	vector<locations> location_data = put_input_to_struct(splitted_input, open_times, close_times, arrangment);
-	return location_data;
+	vector<int> arrangment = find_title_order(file_name);
+	vector<vector<string>> locations_info_table = read_locs_data(file_name);
+	open_times = organize_open_times(locations_info_table, arrangment[OPENING_TIME]);
+	close_times = organize_close_times(locations_info_table, arrangment[CLOSING_TIME]);
+	vector<locations> locations_data = organize_locations_data(locations_info_table, open_times, close_times, arrangment);
+	return locations_data;
 }
 
 int main(int argc, char *argv[])
