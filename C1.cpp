@@ -29,11 +29,17 @@ enum KEYWORD_INDEX
 
 struct locations
 {
-	int number;
 	string name;
 	int opening_time;
 	int closing_time;
 	int rank;
+};
+
+struct plan
+{
+	string name;
+	string start_time;
+	string end_time;
 };
 
 int search_element(vector<string> titles, string element)
@@ -151,7 +157,6 @@ vector<locations> organize_locations_data(vector<vector<string>> locations_info_
 	int location_number = locations_info_table.size();
 	for (int i = 0; i < location_number; i++)
 	{
-		adding_loc.number = i + 1;
 		adding_loc.name = locations_info_table[i][title_arrangment[NAME]];
 		adding_loc.opening_time = open_times[i];
 		adding_loc.closing_time	= close_times[i];
@@ -186,7 +191,7 @@ bool existance_checker(vector<int> resource, int element)
 	return false;
 }
 
-vector<int> find_suitable_indexs(vector<locations> locations_data, int nearest_time, vector<int> location_check,
+vector<int> find_suitable_indexs(vector<locations> locations_data, int nearest_time, vector<int> gone_locations,
 						 vector<int> unsuitable_loc_indexes)
 {
 	vector<int> suitable_loc_indexes;
@@ -231,13 +236,13 @@ int calculate_end_time(int previous_time, int duration)
 	return end_time;
 }
 
-vector<int> find_open_locs(vector<int> open_times, int current_time, vector<int> location_check,
+vector<int> find_open_locs(vector<int> open_times, int current_time, vector<int> gone_locations,
 							 vector<int> unsuitable_indexs)
 {
 	vector<int> suitable_indexs;
 	for (int i = 0; i < open_times.size(); i++)
 	{
-		if (open_times[i] <= current_time && !existance_checker(location_check, i) &&
+		if (open_times[i] <= current_time && !existance_checker(gone_locations, i) &&
 			!existance_checker(unsuitable_indexs, i))
 				suitable_indexs.push_back(i);
 	}
@@ -252,8 +257,9 @@ vector<int> find_open_times_after_now(vector<int> all_opening_times, int current
 			late_open_times.push_back(all_opening_times[i]);
 	return late_open_times;
 }
+
 int find_next_destination_index(int &current_time, vector<int> &open_times, vector<locations> input, 
-							vector<int> location_check, vector<int> unsuitable_loc_indexes)
+							vector<int> gone_locations, vector<int> unsuitable_loc_indexes)
 {
 	vector<int> suitable_loc_indexes;
 	int rank, next_destination_index = NOT_FOUND;
@@ -264,14 +270,14 @@ int find_next_destination_index(int &current_time, vector<int> &open_times, vect
 		suitable_loc_indexes.clear();
 		if (current_time >= find_min(open_times) && counter < len)
 		{
-			suitable_loc_indexes = find_open_locs(open_times, current_time, location_check, unsuitable_loc_indexes);
+			suitable_loc_indexes = find_open_locs(open_times, current_time, gone_locations, unsuitable_loc_indexes);
 			counter++;
 		}
 		else
 		{
 			vector<int> late_open_times = find_open_times_after_now(open_times, current_time);
 			int nearest_time = find_min(late_open_times);
-			suitable_loc_indexes = find_suitable_indexs(input, nearest_time, location_check, unsuitable_loc_indexes);
+			suitable_loc_indexes = find_suitable_indexs(input, nearest_time, gone_locations, unsuitable_loc_indexes);
 			current_time = nearest_time;
 		}
 		if (suitable_loc_indexes.size() > 0)
@@ -340,16 +346,20 @@ vector<int> final_next_destination(vector<locations> locations_data, vector<int>
 	return gone_locations_indexes;
 }
 
+string int_to_string(int number)
+{
+	stringstream number_stream;
+	number_stream << number;
+	string number_str = number_stream.str();
+	return number_str;
+}
+
 string convert_int_to_clockform(int time)
 {
 	int hour = time / HOUR;
 	int min = time - (hour * HOUR);
-	stringstream hour_stream;
-	hour_stream << hour;
-	string hour_str = hour_stream.str();
-	stringstream min_stream;
-	min_stream << min;
-	string min_str = min_stream.str();
+	string hour_str = int_to_string(hour);
+	string min_str = int_to_string(min);
 	if (hour < 10 && min < 10)
 		return "0" + hour_str + TIME_DELIMITER + "0" + min_str;
 	else if (hour < 10 && min >= 10)
@@ -360,26 +370,37 @@ string convert_int_to_clockform(int time)
 		return hour_str + TIME_DELIMITER + min_str;
 }
 
-vector<vector<string>> make_vector_ready_for_print(vector<locations> input, vector<int> &close_times, vector<int> &location_check, vector<int> &start, vector<int> &durations)
+plan make_visit_plan(string location_name, string start_time, string end_time)
+{	
+	plan visit_plan;
+	visit_plan.name = location_name;
+	visit_plan.start_time = start_time;
+	visit_plan.end_time = end_time;
+	return visit_plan;
+}
+
+vector<plan> organize_final_schedule(vector<locations> locations_data, vector<int> close_times,
+						 vector<int> gone_locations, vector<int> start_times, vector<int> durations)
 {
-	vector<vector<string>> final_schedjule;
-	for (int i = 0; i < location_check.size(); i++)
+	vector<plan> final_schedjule;
+	for (int i = 0; i < gone_locations.size(); i++)
 	{
-		int end = calculate_end_time(start[i], durations[i]);
-		string standard_start = convert_int_to_clockform(start[i]);
-		string standard_end = convert_int_to_clockform(end);
-		vector<string> temp_schedjule = {input[location_check[i]].name, standard_start, standard_end};
-		final_schedjule.push_back(temp_schedjule);
+		int end_time = calculate_end_time(start_times[i], durations[i]);
+		string standard_start_time = convert_int_to_clockform(start_times[i]);
+		string standard_end_time = convert_int_to_clockform(end_time);
+		plan visit_plan = make_visit_plan(locations_data[gone_locations[i]].name, standard_start_time,
+													 standard_end_time);
+		final_schedjule.push_back(visit_plan);
 	}
 	return final_schedjule;
 }
 
-void print_output(vector<vector<string>> final_schedjule)
+void print_schedule(vector<plan> final_schedule)
 {
-	for (int i = 0; i < final_schedjule.size(); i++)
-		cout << "Location " << final_schedjule[i][NAME] << endl
-			 << "Visit from " << final_schedjule[i][OPENING_TIME] << " until " <<
-			 	final_schedjule[i][CLOSING_TIME] << endl << "---" << endl;
+	for (int i = 0; i < final_schedule.size(); i++)
+		cout << "Location " << final_schedule[i].name << endl
+			 << "Visit from " << final_schedule[i].start_time << " until " <<
+			 	final_schedule[i].end_time << endl << "---" << endl;
 }
 
 vector<locations> read_from_file(string file_name, vector<int> &open_times, vector<int> &close_times)
@@ -400,7 +421,7 @@ int main(int argc, char *argv[])
 	vector<int> close_times;
 	vector<locations> locations_data = read_from_file(argv[1] + 2, open_times, close_times);
 	vector<int> gone_location = final_next_destination(locations_data, start_times, durations, open_times, close_times);
-	vector<vector<string>> ready_to_print = make_vector_ready_for_print(locations_data, close_times,
+	vector<plan> final_schedule = organize_final_schedule(locations_data, close_times,
 																		gone_location, start_times, durations);
-	print_output(ready_to_print);
+	print_schedule(final_schedule);
 }
